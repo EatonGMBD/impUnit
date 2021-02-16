@@ -131,7 +131,7 @@ local ImpTestCase = class {
    * @param {int} level - current depth level
    * @private
    */
-  function _assertDeepEqual(value1, value2, message, isForwardPass, path = "", level = 0, equalityFunction) {
+  function _assertDeepEqual(value1, value2, message, equalityFunction, isForwardPass, path = "", level = 0) {
     local cleanPath = @(p) p.len() == 0 ? p : p.slice(1);
 
     if (level > 32) {
@@ -156,7 +156,21 @@ local ImpTestCase = class {
               isForwardPass ? "none" : v + "");
           }
 
-          this._assertDeepEqual(value1[k], value2[k], message, isForwardPass, extendedPath, level + 1, equalityFunction);
+          this._assertDeepEqual(value1[k], value2[k], message, equalityFunction, isForwardPass, extendedPath, level + 1);
+        }
+
+        break;
+
+      case "instance":
+        if(equalityFunction != null && type(equalityFunction) == "function") {
+          local equal = equalityFunction(value1, value2);
+          if(!equal) {
+              throw format(message, cleanPath(path), value1 + "", value2 + "");
+          }
+        } else {
+            if (value2 != value1) {
+              throw format(message, cleanPath(path), value1 + "", value2 + "");
+            }
         }
 
         break;
@@ -175,20 +189,6 @@ local ImpTestCase = class {
             }
 
             break;
-          
-          case "instance":
-
-            if(equalityFunction != null && typeof equalityFunction == "function") {
-              local equal = equalityFunction();
-
-              if(!equal) {
-                  throw format(message, cleanPath(path), value1 + "", value2 + "");
-              }
-            } else {
-                if (value2 != value1) {
-                  throw format(message, cleanPath(path), value1 + "", value2 + "");
-                }
-            }
 
           default:
 
@@ -222,8 +222,8 @@ local ImpTestCase = class {
    */
   function assertDeepEqual(expected, actual, message = "Comparison failed on '%s': expected %s, got %s", equalityFunction = null) {
     this.assertions++;
-    this._assertDeepEqual(expected, actual, message, true, equalityFunction); // forward pass
-    this._assertDeepEqual(actual, expected, message, false, equalityFunction); // backwards pass
+    this._assertDeepEqual(expected, actual, message, equalityFunction, true); // forward pass
+    this._assertDeepEqual(actual, expected, message, equalityFunction, false); // backwards pass
   }
 
   /**
