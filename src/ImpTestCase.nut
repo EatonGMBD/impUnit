@@ -131,7 +131,7 @@ local ImpTestCase = class {
    * @param {int} level - current depth level
    * @private
    */
-  function _assertDeepEqual(value1, value2, message, isForwardPass, path = "", level = 0) {
+  function _assertDeepEqual(value1, value2, message, defaultEqualityFunction, isForwardPass, path = "", level = 0) {
     local cleanPath = @(p) p.len() == 0 ? p : p.slice(1);
 
     if (level > 32) {
@@ -156,7 +156,7 @@ local ImpTestCase = class {
               isForwardPass ? "none" : v + "");
           }
 
-          this._assertDeepEqual(value1[k], value2[k], message, isForwardPass, extendedPath, level + 1);
+          this._assertDeepEqual(value1[k], value2[k], message, defaultEqualityFunction, isForwardPass, extendedPath, level + 1);
         }
 
         break;
@@ -191,8 +191,17 @@ local ImpTestCase = class {
         break;
 
       default:
+        // For the default case, we first check if they are equal
+        // if not then we check if we have a default equality function that can be used before we throw
         if (value2 != value1) {
-          throw format(message, cleanPath(path), value1 + "", value2 + "");
+          if(defaultEqualityFunction != null && type(defaultEqualityFunction) == "function") {
+            local equal = defaultEqualityFunction(value1, value2);
+            if(!equal) {
+              throw format(message, cleanPath(path), value1 + "", value2 + "");
+            }
+          } else {
+              throw format(message, cleanPath(path), value1 + "", value2 + "");
+          }
         }
 
         break;
@@ -206,10 +215,10 @@ local ImpTestCase = class {
    * @param {*} actual
    * @param {string} message
    */
-  function assertDeepEqual(expected, actual, message = "Comparison failed on '%s': expected %s, got %s") {
+  function assertDeepEqual(expected, actual, message = "Comparison failed on '%s': expected %s, got %s", defaultEqualityFunction = null) {
     this.assertions++;
-    this._assertDeepEqual(expected, actual, message, true); // forward pass
-    this._assertDeepEqual(actual, expected, message, false); // backwards pass
+    this._assertDeepEqual(expected, actual, message, defaultEqualityFunction, true); // forward pass
+    this._assertDeepEqual(actual, expected, message, defaultEqualityFunction, false); // backwards pass
   }
 
   /**
